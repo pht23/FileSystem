@@ -1,9 +1,12 @@
-#include "tools.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "tools.h"
 
 void display_usage()
 {
-    printf("USAGE: [filename] [token[0]]\n");
+    printf("USAGE: [filename] [command]]\n");
 }
 
 void trim(char *str)
@@ -14,12 +17,10 @@ void trim(char *str)
 }
 
 
-
 void read_command(char** command_string)
 {
     while (!fgets(*command_string, MAX_CMD_SIZE, stdin));
 }
-
 
 
 void parser(char* token[], char *command_string)
@@ -29,13 +30,13 @@ void parser(char* token[], char *command_string)
     char* working_string = strdup(command_string);  
     char* head_ptr = working_string;                
 
-    for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
+    for (int i = 0; i < MAX_NUM_ARGS; i++)
     {
         token[i] = NULL;
     }
 
     while (((argument_ptr = strsep(&working_string, WHITESPACE)) != NULL) 
-                                    && (token_count < MAX_NUM_ARGUMENTS))
+                                    && (token_count < MAX_NUM_ARGS))
     {
         token[token_count] = strndup(argument_ptr, MAX_CMD_SIZE);
         if(strlen( token[token_count] ) == 0)
@@ -57,9 +58,10 @@ void command_center(char *command)
     if (strcmp(token[0], "createfs") == 0)
         createfs();
 
-    else if (strcmp(token[0], "open") == 0)
-        openfs();
 
+    else if (strcmp(token[0], "open") == 0)
+        openfs(token[1]);
+/*
     else if (strcmp(token[0], "close") == 0)
         closefs();
 
@@ -92,7 +94,9 @@ void command_center(char *command)
 
     else if (strcmp(token[0], "decrypt") == 0)
         decrypt();
-    
+    */
     else
         display_usage();
 }
+
+

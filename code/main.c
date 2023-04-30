@@ -2,8 +2,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+
 #include "createfs.h"
 #include "openfs.h"
+/*
 #include "savefs.h"
 #include "closefs.h"
 #include "insert.h"
@@ -15,23 +17,22 @@
 #include "attribute.h"
 #include "encrypt.h"
 #include "decrypt.h"
-
+*/
 #include "tools.h" // moving the parser and read token function here
 
-#define MAX_NUM_ARGS 5
-#define MAX_CMD_SIZE 255
+
 
 
 
 
 int main (void)
 {
-    char *command = (char*)malloc(MAX_CMD_SIZE)
+    char *command = (char*)malloc(MAX_CMD_SIZE);
 
     while (1)
     {
         printf("mfs> ");
-        read_token[0](&command);
+        read_command(&command);
         command_center(command);
     }
 
