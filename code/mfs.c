@@ -58,16 +58,28 @@ uint8_t image_open;
 int32_t findFreeBlock()
 {
     int i;
-    for ( i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++ )
+    for ( i = 0; i < NUM_BLOCKS; i++ )
     {
         if ( free_blocks[i] )
+        {
+            return i + 790;
+        }
+    }
+    return -1;
+}
+
+int32_t findFreeInode()
+{
+    int i;
+    for ( i = 0; i < NUM_FILES; i++)
+    {
+        if ( free_inodes[i] )
         {
             return i;
         }
     }
     return -1;
 }
-
 
 /*
 |-------------------------------------------------------------------------|
@@ -288,8 +300,8 @@ void insert(char *filename)
         return;
     }
     // find empty directory entry
-    //int i;
-    //for (i = )
+    int i;
+    for (i = )
 
     // find free inodes and place the file
 }
