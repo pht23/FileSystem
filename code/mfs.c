@@ -314,8 +314,7 @@ void insert(char *filename)
 
 void delete(char * filename)
 {
-    int i;
-    int32_t j;
+    int i, j;
 
     for ( i = 0; i < NUM_FILES; i++)
     {
@@ -331,10 +330,7 @@ void delete(char * filename)
 
     for ( i = 0; i < BLOCKS_PER_FILE; i++)
     {
-        if (inodes[j].blocks[i] != 0)
-        {
-            free_blocks[inodes[j].blocks[i] - FIRST_DATA_BLOCK] = 1;
-        }
+        inodes[j].blocks[i] = 0;
     }
 
     return;
@@ -348,8 +344,7 @@ void delete(char * filename)
 
 void undelete(char * filename)
 {
-    int i;
-    int32_t j;
+    int i, j;
 
     for ( i = 0; i < NUM_FILES; i++)
     {
@@ -365,10 +360,7 @@ void undelete(char * filename)
 
     for ( i = 0; i < BLOCKS_PER_FILE; i++)
     {
-        if (inodes[j].blocks[i] != 1)
-        {
-            free_blocks[inodes[j].blocks[i] - FIRST_DATA_BLOCK] = 0;
-        }
+        inodes[j].blocks[i] = 1;
     }
 
     return;
