@@ -9,7 +9,7 @@
 
 #define BLOCK_SIZE 1024
 #define NUM_BLOCKS 65536
-#define BLOCK_PER_FILE 1024
+#define BLOCKS_PER_FILE 1024
 #define NUM_FILES 256
 #define FIRST_DATA_BLOCK 790
 #define MAX_FILE_SIZE 1048576
@@ -37,7 +37,7 @@ struct directoryEntry *directory;
 // inode
 struct inode 
 {
-    int32_t blocks[BLOCK_PER_FILE];
+    int32_t blocks[BLOCKS_PER_FILE];
     short in_use;
     uint8_t attribute;
     uint32_t file_size;
@@ -306,7 +306,25 @@ void insert(char *filename)
     // find free inodes and place the file
 }
 
+/*
+|-------------------------------------------------------------------------|
+    delete()
+|-------------------------------------------------------------------------|
+*/
 
+void delete()
+{
+    int i;
+    directory->in_use = 0;
+    inodes->in_use = 0;
+
+    for ( i = 0; i < BLOCKS_PER_FILE; i++)
+    {
+        inodes->blocks[i] = 0;
+    }
+
+    return;
+}
 
 
 /*
