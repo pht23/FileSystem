@@ -312,15 +312,26 @@ void insert(char *filename)
 |-------------------------------------------------------------------------|
 */
 
-void delete()
+void delete(char * filename)
 {
-    int i;
-    directory->in_use = 0;
-    inodes->in_use = 0;
+    int i, j;
+
+    for ( i = 0; i < NUM_FILES; i++)
+    {
+        if (!strcmp(filename, directory[i].filename))
+        {
+            break;
+        }
+    }
+
+    directory[i].in_use = 0;
+    inodes[i].in_use = 0;
+
+    i = j;
 
     for ( i = 0; i < BLOCKS_PER_FILE; i++)
     {
-        inodes->blocks[i] = 0;
+        inodes[j].blocks[i] = 0;
     }
 
     return;
@@ -332,15 +343,26 @@ void delete()
 |-------------------------------------------------------------------------|
 */
 
-void undelete()
+void undelete(char * filename)
 {
-    int i;
-    directory->in_use = 1;
-    inodes->in_use = 1;
+    int i, j;
+
+    for ( i = 0; i < NUM_FILES; i++)
+    {
+        if (!strcmp(filename, directory[i].filename))
+        {
+            break;
+        }
+    }
+
+    directory[i].in_use = 1;
+    inodes[i].in_use = 1;
+
+    i = j;
 
     for ( i = 0; i < BLOCKS_PER_FILE; i++)
     {
-        inodes->blocks[i] = 1;
+        inodes[j].blocks[i] = 1;
     }
 
     return;
