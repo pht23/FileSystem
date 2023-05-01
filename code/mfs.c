@@ -9,9 +9,9 @@
 
 #define BLOCK_SIZE 1024
 #define NUM_BLOCKS 65536
-#define BLOCKS_PER_FILE 1024
+#define BLOCK_PER_FILE 1024
 #define NUM_FILES 256
-#define FIRST_DATA_BLOCK 790
+#define FIRST_DATA_BLOCK 1001
 #define MAX_FILE_SIZE 1048576
 
 #define WHITESPACE " \t\n"
@@ -37,7 +37,7 @@ struct directoryEntry *directory;
 // inode
 struct inode 
 {
-    int32_t blocks[BLOCKS_PER_FILE];
+    int32_t blocks[BLOCK_PER_FILE];
     short in_use;
     uint8_t attribute;
     uint32_t file_size;
@@ -49,20 +49,15 @@ FILE *fp;
 char image_name[64];
 uint8_t image_open;
 
-#define WHITESPACE " \t\n"
-
-#define MAX_COMMAND_SIZE 255
-
-#define MAX_NUM_ARGUMENTS 5
 
 int32_t findFreeBlock()
 {
     int i;
-    for ( i = 0; i < NUM_BLOCKS; i++ )
+    for (i = 0; i < NUM_BLOCKS; i++)
     {
-        if ( free_blocks[i] )
+        if (free_blocks[i])
         {
-            return i + 790;
+            return i + 1001;
         }
     }
     return -1;
@@ -71,9 +66,22 @@ int32_t findFreeBlock()
 int32_t findFreeInode()
 {
     int i;
-    for ( i = 0; i < NUM_FILES; i++)
+    for (i = 0; i < NUM_FILES; i++)
     {
         if ( free_inodes[i] )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int32_t findFreeInodeBlock(int32_t inode)
+{
+    int i;
+    for (i = 0; i < BLOCK_PER_FILE; i++)
+    {
+        if (inodes[inode].blocks[i] == -1)
         {
             return i;
         }
@@ -87,11 +95,11 @@ int32_t findFreeInode()
 |-------------------------------------------------------------------------|
 */
 
-void init()
+void initialize()
 {
     directory = (struct directoryEntry*)&data[0][0];
     inodes = (struct inode*)&data[20][0];
-    free_blocks = (uint8_t *)&data[277][0];
+    free_blocks = (uint8_t *)&data[1000][0];
     free_inodes = (uint8_t *)&data[19][0];
 
     memset(image_name, 0, 64);
@@ -110,7 +118,6 @@ void init()
             inodes[i].in_use = 0;
             inodes[i].attribute = 0;
             inodes[i].file_size = 0;
-
         }
     }
     for (int j = 0; j < NUM_BLOCKS; j++)
@@ -159,7 +166,32 @@ void createfs(char *filename)
     memset(data, 0, NUM_BLOCKS * BLOCK_SIZE);
     image_open = 1;
 
+
+    for(int i = 0; i < NUM_FILES; i++)
+    {
+        directory[i].in_use = 0;
+        directory[i].inode = -1;
+        free_inodes[i] = 1;
+        memset(directory[i].filename, 0, 64);
+
+        for (int j = 0; j < NUM_BLOCKS; j++)
+        {
+            inodes[i].blocks[j] = -1;
+            inodes[i].in_use = 0;
+            inodes[i].attribute = 0;
+            inodes[i].file_size = 0;
+
+        }
+    }
+
+    for (int j = 0; j < NUM_BLOCKS; j++)
+    {
+        free_blocks[j] = 1;
+    }
+
+
     fclose(fp);
+
 }
 
 
@@ -198,7 +230,7 @@ void savefs()
 
 void openfs(char *filename)
 {
-    fp = fopen(filename, "w");
+    fp = fopen(filename, "r");
 
     strncpy(image_name, filename, strlen(filename));
 
@@ -301,128 +333,352 @@ void insert(char *filename)
     }
     // find empty directory entry
     int i;
-    for (i = )
+    int directory_entry = -1;
+    for (i = 0; i < NUM_FILES; i++)
+    {
+        if (directory[i].in_use == 0)
+        {
+            directory_entry = i;
+            break;
+        }
+    }
+
+    if (directory_entry == -1)
+    {
+        printf("ERROR: Could not find a free directory entry\n.");
+        return;
+    }
+
+    // Open the input file read-only 
+    FILE *ifp = fopen (filename, "r"); 
+    printf("Reading %d bytes from %s\n", (int)buf.st_size, filename);
+ 
+    // Save off the size of the input file since we'll use it in a couple of places and 
+    // also initialize our index variables to zero. 
+    int32_t copy_size = buf.st_size;
+
+    // We want to copy and write in chunks of BLOCK_SIZE. So to do this 
+    // we are going to use fseek to move along our file stream in chunks of BLOCK_SIZE.
+    // We will copy bytes, increment our file pointer by BLOCK_SIZE and repeat.
+    int32_t offset = 0;               
+
+    // We are going to copy and store our file in BLOCK_SIZE chunks instead of one big 
+    // memory pool. Why? We are simulating the way the file system stores file data in
+    // blocks of space on the disk. block_index will keep us pointing to the area of
+    // the area that we will read from or write to.
+    int32_t block_index = -1;
+
+    // Find free inode
+        int32_t inode_index = findFreeInode();
+        if(inode_index == -1)
+        {
+            printf("ERROR: Can not find a free inode.\n");
+            return;
+        }
+
+
+        // Place the file info in the directory
+        directory[directory_entry].in_use = 1;
+        directory[directory_entry].inode = inode_index;
+        strncpy(directory[directory_entry].filename, filename, strlen(filename));
+
+        inodes[inode_index].file_size = buf.st_size;
+ 
+    // copy_size is initialized to the size of the input file so each loop iteration we
+    // will copy BLOCK_SIZE bytes from the file then reduce our copy_size counter by
+    // BLOCK_SIZE number of bytes. When copy_size is less than or equal to zero we know
+    // we have copied all the data from the input file.
+    while(copy_size > 0)
+    {
+        fseek(ifp, offset, SEEK_SET);
+ 
+        // Read BLOCK_SIZE number of bytes from the input file and store them in our
+        // data array. 
+
+        // Find a free block
+        block_index = findFreeBlock();
+
+        if (block_index == -1)
+        {
+            printf("ERROR: Can not find a free block.\n");
+            return;
+        }
+
+        int32_t bytes = fread(data[block_index], BLOCK_SIZE, 1, ifp );
+
+        // Save blocks in the inode
+        int32_t inode_block = findFreeInodeBlock(inode_index);
+        inodes[inode_index].blocks[inode_block] = block_index;
+
+
+        // If bytes == 0 and we haven't reached the end of the file then something is 
+        // wrong. If 0 is returned and we also have the EOF flag set then that is OK.
+        // It means we've reached the end of our input file.
+        if(bytes == 0 && !feof(ifp))
+        {
+            printf("ERROR: An error occured reading from the input file.\n");
+            return;
+        }
+
+        // Clear the EOF file flag.
+        clearerr( ifp );
+
+        // Reduce copy_size by the BLOCK_SIZE bytes.
+        copy_size -= BLOCK_SIZE;
+      
+        // Increase the offset into our input file by BLOCK_SIZE.  This will allow
+        // the fseek at the top of the loop to position us to the correct spot.
+        offset    += BLOCK_SIZE;
+
+        block_index = findFreeBlock();
+    }
+
+    // We are done copying from the input file so close it out.
+    fclose(ifp);
+    
 
     // find free inodes and place the file
 }
 
-/*
-|-------------------------------------------------------------------------|
-    delete()
-|-------------------------------------------------------------------------|
-*/
-
-void delete(char * filename)
+// line 130 to 200 of the code from examples is our retrieve
+// read to second argument instead of argv[2]
+// iterate through inode instead of block_index
+void retrieve(char *filename, char *newfilename)
 {
-    int i, j;
-
-    for ( i = 0; i < NUM_FILES; i++)
+    if (!image_open)
     {
-        if (!strcmp(filename, directory[i].filename))
+        printf("ERROR: Disk image is not opened.\n");
+        return;
+    }
+
+    if (filename == NULL)
+    {
+        printf("ERROR: No filename specified.\n");
+        return;
+    }
+
+    // Find the file in the directory
+    int directory_entry = -1;
+    for (int i = 0; i < NUM_FILES; i++)
+    {
+        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
         {
-            directory[i].in_use = 0;
-            inodes[directory[i].inode].in_use = 0;
-            inodes[directory[i].inode].attribute = 0;
-            inodes[directory[i].inode].file_size = 0;
-            j = directory[i].inode;
+            directory_entry = i;
             break;
         }
     }
 
-
-    for ( i = 0; i < BLOCKS_PER_FILE; i++)
+    if (directory_entry == -1)
     {
-        inodes[j].blocks[i] = 0;
+        printf("ERROR: File not found in the directory.\n");
+        return;
     }
 
-    return;
+    int32_t inode_index = directory[directory_entry].inode;
+
+    // Open the output file with the given newfilename or the original filename
+    FILE *ofp = fopen(newfilename ? newfilename : filename, "w");
+
+    if (ofp == NULL)
+    {
+        printf("ERROR: Unable to create the output file.\n");
+        return;
+    }
+
+    int32_t remaining_size = inodes[inode_index].file_size;
+    int32_t offset = 0;
+
+    for (int i = 0; i < BLOCK_PER_FILE && remaining_size > 0; i++)
+    {
+        if (inodes[inode_index].blocks[i] != -1)
+        {
+            int32_t bytes_to_write = remaining_size < BLOCK_SIZE ? remaining_size : BLOCK_SIZE;
+            fwrite(data[inodes[inode_index].blocks[i]], bytes_to_write, 1, ofp);
+            remaining_size -= bytes_to_write;
+            offset += bytes_to_write;
+        }
+    }
+
+    fclose(ofp);
 }
 
-/*
-|-------------------------------------------------------------------------|
-    undelete()
-|-------------------------------------------------------------------------|
-*/
-
-void undelete(char * filename)
+// set directory in_use to false
+// set inode in_use to false
+// set the blocks as free (free_blocks)
+void delete(char *filename)
 {
-    int i, j;
-
-    for ( i = 0; i < NUM_FILES; i++)
+    if (image_open == 0)
     {
-        if (!strcmp(filename, directory[i].filename))
+        printf ("ERROR: Disk image is not opened.\n");
+        return;
+    }
+
+    int i;
+    int dir_entry = -1;
+
+    for (i = 0; i < NUM_FILES; i++)
+    {
+        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
         {
-            directory[i].in_use = 1;
-            inodes[directory[i].inode].in_use = 1;
-            j = directory[i].inode;
+            dir_entry = i;
             break;
         }
     }
 
-
-    for ( i = 0; i < BLOCKS_PER_FILE; i++)
+    if (dir_entry == -1)
     {
-        inodes[j].blocks[i] = 1;
-    }
-
-    return;
-}
-
-/*
-|-------------------------------------------------------------------------|
-    encrypt()
-|-------------------------------------------------------------------------|
-*/
-
-void encrypt(char * filename, uint8_t key)
-{
-    fp = fopen(filename, "rb+");
-    if (fp == NULL)
-    {
-        printf("ERROR: File not found\n");
+        printf("ERROR: File not found.\n");
         return;
     }
 
-    uint8_t temp;
-    fseek(fp, 0, SEEK_SET);
-
-    while (fread(&temp, 1, 1, fp))
+    int32_t inode_index = directory[dir_entry].inode;
+    
+    for (i = 0; i < BLOCK_PER_FILE; i++)
     {
-        temp ^= key;
-        fseek(fp, -1, SEEK_CUR);
-        fwrite(&temp, 1, 1, fp);
+        if (inodes[inode_index].blocks[i] != -1)
+        {
+            free_blocks[inodes[inode_index].blocks[i] - 1001] = 1;
+            inodes[inode_index].blocks[i] = -1;
+        }
     }
+    // Free the inode
+    inodes[inode_index].in_use = 0;
+    inodes[inode_index].attribute = 0;
+    inodes[inode_index].file_size = 0;
+    free_inodes[inode_index] = 1;
 
-    fclose(fp);
+    // Free the directory entry
+    directory[dir_entry].in_use = 0;
+    directory[dir_entry].inode = -1;
+    //memset(directory[dir_entry].filename, 0, 64);
 }
 
-/*
-|-------------------------------------------------------------------------|
-    encrypt()
-|-------------------------------------------------------------------------|
-*/
-
-void decrypt(char * filename, uint8_t key)
+// exact opposite of delete
+void undel(char *filename)
 {
-    fp = fopen(filename, "rb+");
-    if (fp == NULL)
+  if (image_open == 0)
     {
-        printf("ERROR: File not found\n");
+        printf ("ERROR: Disk image is not opened.\n");
         return;
     }
 
-    uint8_t temp;
-    fseek(fp, 0, SEEK_SET);
+    int i;
+    int dir_entry = -1;
 
-    while (fread(&temp, 1, 1, fp))
+    for (i = 0; i < NUM_FILES; i++)
     {
-        temp ^= key;
-        fseek(fp, -1, SEEK_CUR);
-        fwrite(&temp, 1, 1, fp);
+        if (directory[i].in_use == 0 && strcmp(directory[i].filename, filename) == 0)
+        {
+            dir_entry = i;
+            break;
+        }
     }
 
-    fclose(fp);
+    if (dir_entry == -1)
+    {
+        printf("ERROR: File not found.\n");
+        return;
+    }
+
+    int32_t inode_index = directory[dir_entry].inode;
+    
+    for (i = 0; i < BLOCK_PER_FILE; i++)
+    {
+        if (inodes[inode_index].blocks[i] != -1)
+        {
+            free_blocks[inodes[inode_index].blocks[i] - 1001] = 1;
+            inodes[inode_index].blocks[i] = -1;
+        }
+    }
+    // Free the inode
+    inodes[inode_index].in_use = 1;
+    inodes[inode_index].attribute = 0;
+    inodes[inode_index].file_size = 0;
+    free_inodes[inode_index] = 0;
+
+    // Free the directory entry
+    directory[dir_entry].in_use = 1;
+    directory[dir_entry].inode = -1;
+    //memset(directory[dir_entry].filename, 0, 64);
 }
+
+/*
+    encrypt	encrypt <filename> <cipher>	
+    XOR encrypt the file using the given cipher. 
+    The cipher is limited to a 1-byte value
+*/
+//void enc(char * filename, uint8_t key);
+void enc(char *filename, uint8_t key)
+{
+    if (!image_open)
+    {
+        printf("ERROR: Disk image is not opened.\n");
+        return;
+    }
+
+    if (filename == NULL)
+    {
+        printf("ERROR: No filename specified.\n");
+        return;
+    }
+
+    int directory_entry = - 1;
+    for (int i = 0; i < NUM_FILES; i++)
+    {
+        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
+        {
+            directory_entry = i;
+        }
+    }
+
+    if (directory_entry == -1)
+    {
+        printf("ERROR: File not found in the directory.\n");
+        return;
+    }
+
+    int32_t inode_index = directory[directory_entry].inode;
+
+    for (int i = 0; i < BLOCK_PER_FILE; i++)
+    {
+        if (inodes[inode_index].blocks[i] != -1)
+        {
+            for (int j = 0; j < BLOCK_SIZE; j++)
+            {
+                data[inodes[inode_index].blocks[i]][j] ^= key;
+            }
+        }
+    }
+}
+
+void dec(char *filename, uint8_t key)
+{
+    // XOR decryption is the same as encryption
+    enc(filename, key);
+}
+
+/*
+    decrypt	encrypt <filename> <cipher>	
+    XOR decrypt the file using the given cipher. 
+    The cipher is limited to a 1-byte value
+*/
+
+
+
+/*
+    read	read <filename> <starting byte> <number of bytes>	
+    Print <number of bytes> bytes from the file, in hexadecimal, 
+    starting at <starting byte>
+*/
+//void read(char *filename, /*starting byte*/ /*number of bytes*/);
+
+
+/*
+    attrib	attrib [+attribute] [-attribute] <filename>	
+    Set or remove the attribute for the file
+*/
+void attrib();
+
 
 /*
 |-------------------------------------------------------------------------|
@@ -436,7 +692,7 @@ int main ()
     char *token[MAX_NUM_ARGS];
 
     fp = NULL;
-    init();
+    initialize();
 
     while(1)
     {
@@ -455,12 +711,12 @@ int main ()
             createfs (token[1]);
         }
 
-        if (strcmp("savefs", token[0]) == 0)
+        else if (strcmp("savefs", token[0]) == 0)
         {
             savefs();
         }
 
-        if (strcmp("open", token[0]) == 0)
+        else if (strcmp("open", token[0]) == 0)
         {
             if (token[1] == NULL)
             {
@@ -470,12 +726,12 @@ int main ()
             openfs(token[1]);
         }
 
-        if (strcmp("close", token[0]) == 0)
+        else if (strcmp("close", token[0]) == 0)
         {
             closefs();
         }
 
-        if (strcmp("list", token[0]) == 0)
+        else if (strcmp("list", token[0]) == 0)
         {
             if (!image_open)
             {
@@ -485,7 +741,7 @@ int main ()
             list();
         }
 
-        if (strcmp("df", token[0]) == 0)
+        else if (strcmp("df", token[0]) == 0)
         {
             if (!image_open)
             {
@@ -495,7 +751,7 @@ int main ()
             printf("%d bytes free\n", df());
         }
 
-        if (strcmp("insert", token[0]) == 0)
+        else if (strcmp("insert", token[0]) == 0)
         {               
             if (!image_open)
             {
@@ -512,13 +768,86 @@ int main ()
 
         }
 
+        else if (strcmp("delete", token[0]) == 0)
+        {
+            if (token[1] == NULL)
+            {
+                printf("ERROR: No filename specified.\n");
+                continue;
+            }
+            delete(token[1]);
+        }
 
+        else if (strcmp("undelete", token[0]) == 0)
+        {
+            if (token[1] == NULL)
+            {
+                printf("ERROR: No filename specified.\n");
+                continue;
+            }
+            undel(token[1]);
+        }
+        
+        else if (strcmp("retrieve", token[0]) == 0)
+        {
+            if (token[1] == NULL)
+            {
+                printf("ERROR: No filename specified.\n");
+                continue;
+            }
+            retrieve(token[1], token[2]);
+        }
 
+        else if (strcmp("encrypt", token[0]) == 0)
+        {
+            if (token[1] == NULL)
+            {
+                printf("ERROR: No filename specified.\n");
+                continue;
+            }
+               
+            uint8_t key;
+            printf("Enter the cipher value to encrypt: ");
+            scanf("%hhu", &key);
+    
+            enc(token[1], key);
+            //enc(token[1], (unsigned char)cipher); // Call the enc function with the given filename and cipher
+        }
+        
+        else if (strcmp("decrypt", token[0]) == 0)
+        {
+            if (token[1] == NULL)
+            {
+                printf("ERROR: No filename specified.\n");
+                continue;
+            }
+            uint8_t key;
+            printf("Enter the cipher value to decrypt: ");
+            scanf("%hhu", &key);
+            dec(token[1], key);
+        }
 
+        else if (strcmp("attrib", token[0]) == 0)
+        {
+            printf("This feature hasn't been implemented. Check back soon.\n");
+            continue;
+        }
 
-        if (strcmp("exit", token[0]) == 0 || strcmp("quit", token[0]) == 0 )
+        else if (strcmp("read", token[0]) == 0)
+        {
+            printf("This feature hasn't been implemented. Check back soon.\n");
+            continue;
+        }
+
+        else if (strcmp("exit", token[0]) == 0 || strcmp("quit", token[0]) == 0 )
         {
             exit(EXIT_SUCCESS);
+        }
+
+        else
+        {
+            printf("Command: %s not found.\n", token[0]);
+            continue;
         }
 
     }
