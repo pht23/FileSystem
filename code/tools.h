@@ -13,10 +13,4 @@ void read_command(char **command_string);
 
 void parser(char *token[], char *command_string);
 
-void command_center(char *command);
-
-void createfs();
-
-void openfs(char *path);
-
 #endif
