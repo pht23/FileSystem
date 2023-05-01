@@ -49,6 +49,25 @@ FILE *fp;
 char image_name[64];
 uint8_t image_open;
 
+#define WHITESPACE " \t\n"
+
+#define MAX_COMMAND_SIZE 255
+
+#define MAX_NUM_ARGUMENTS 5
+
+int32_t findFreeBlock()
+{
+    int i;
+    for ( i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++ )
+    {
+        if ( free_blocks[i] )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 
 /*
 |-------------------------------------------------------------------------|
