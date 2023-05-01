@@ -314,24 +314,27 @@ void insert(char *filename)
 
 void delete(char * filename)
 {
-    int i, j;
+    int i;
+    int32_t j;
 
     for ( i = 0; i < NUM_FILES; i++)
     {
         if (!strcmp(filename, directory[i].filename))
         {
+            directory[i].in_use = 0;
+            inodes[directory[i].inode].in_use = 0;
+            j = directory[i].inode;
             break;
         }
     }
 
-    directory[i].in_use = 0;
-    inodes[i].in_use = 0;
-
-    i = j;
 
     for ( i = 0; i < BLOCKS_PER_FILE; i++)
     {
-        inodes[j].blocks[i] = 0;
+        if (inodes[j].blocks[i] != 0)
+        {
+            free_blocks[inodes[j].blocks[i] - FIRST_DATA_BLOCK] = 1;
+        }
     }
 
     return;
@@ -345,24 +348,27 @@ void delete(char * filename)
 
 void undelete(char * filename)
 {
-    int i, j;
+    int i;
+    int32_t j;
 
     for ( i = 0; i < NUM_FILES; i++)
     {
         if (!strcmp(filename, directory[i].filename))
         {
+            directory[i].in_use = 1;
+            inodes[directory[i].inode].in_use = 1;
+            j = directory[i].inode;
             break;
         }
     }
 
-    directory[i].in_use = 1;
-    inodes[i].in_use = 1;
-
-    i = j;
 
     for ( i = 0; i < BLOCKS_PER_FILE; i++)
     {
-        inodes[j].blocks[i] = 1;
+        if (inodes[j].blocks[i] != 1)
+        {
+            free_blocks[inodes[j].blocks[i] - FIRST_DATA_BLOCK] = 0;
+        }
     }
 
     return;
