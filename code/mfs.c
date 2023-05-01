@@ -49,11 +49,6 @@ FILE *fp;
 char image_name[64];
 uint8_t image_open;
 
-#define WHITESPACE " \t\n"
-
-#define MAX_COMMAND_SIZE 255
-
-#define MAX_NUM_ARGUMENTS 5
 
 int32_t findFreeBlock()
 {
@@ -67,8 +62,6 @@ int32_t findFreeBlock()
     }
     return -1;
 }
-
-
 /*
 |-------------------------------------------------------------------------|
     init()
@@ -288,8 +281,90 @@ void insert(char *filename)
         return;
     }
     // find empty directory entry
-    //int i;
-    //for (i = )
+    int i;
+    int directory_entry = -1
+    for (i = 0; i < NUM_FILES; i++)
+    {
+        if (directory[i].in_use == 0)
+        {
+            directory_entry = i;
+            break;
+        }
+    }
+
+    if (directory_entry == -1)
+    {
+        printf("ERROR: Could not find a free directory entry\n.");
+    }
+
+    // Open the input file read-only 
+    FILE *ifp = fopen (filename, "r"); 
+    printf("Reading %d bytes from %s\n", (int)buf.st_size, filename);
+ 
+    // Save off the size of the input file since we'll use it in a couple of places and 
+    // also initialize our index variables to zero. 
+    int copy_size = buf.st_size;
+
+    // We want to copy and write in chunks of BLOCK_SIZE. So to do this 
+    // we are going to use fseek to move along our file stream in chunks of BLOCK_SIZE.
+    // We will copy bytes, increment our file pointer by BLOCK_SIZE and repeat.
+    int offset = 0;               
+
+    // We are going to copy and store our file in BLOCK_SIZE chunks instead of one big 
+    // memory pool. Why? We are simulating the way the file system stores file data in
+    // blocks of space on the disk. block_index will keep us pointing to the area of
+    // the area that we will read from or write to.
+    int block_index = -1;
+ 
+    // copy_size is initialized to the size of the input file so each loop iteration we
+    // will copy BLOCK_SIZE bytes from the file then reduce our copy_size counter by
+    // BLOCK_SIZE number of bytes. When copy_size is less than or equal to zero we know
+    // we have copied all the data from the input file.
+    while(copy_size > 0)
+    {
+        fseek( ifp, offset, SEEK_SET );
+ 
+      // Read BLOCK_SIZE number of bytes from the input file and store them in our
+      // data array. 
+
+      // Find a free block
+      block_index = findFreeBlock();
+
+      if (block_index = -1)
+      {
+        printf("ERROR: Can not find a free block.\n");
+        return;
+      }
+
+      int bytes  = fread( data[block_index], BLOCK_SIZE, 1, ifp );
+
+      // If bytes == 0 and we haven't reached the end of the file then something is 
+      // wrong. If 0 is returned and we also have the EOF flag set then that is OK.
+      // It means we've reached the end of our input file.
+      if( bytes == 0 && !feof( ifp ) )
+      {
+        printf("An error occured reading from the input file.\n");
+        return -1;
+      }
+
+      // Clear the EOF file flag.
+      clearerr( ifp );
+
+      // Reduce copy_size by the BLOCK_SIZE bytes.
+      copy_size -= BLOCK_SIZE;
+      
+      // Increase the offset into our input file by BLOCK_SIZE.  This will allow
+      // the fseek at the top of the loop to position us to the correct spot.
+      offset    += BLOCK_SIZE;
+
+      // Increment the index into the block array 
+      // DO NOT just increment block index in your file system
+      block_index ++;
+    }
+
+    // We are done copying from the input file so close it out.
+    fclose( ifp );
+    
 
     // find free inodes and place the file
 }
