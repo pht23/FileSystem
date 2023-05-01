@@ -322,6 +322,8 @@ void delete(char * filename)
         {
             directory[i].in_use = 0;
             inodes[directory[i].inode].in_use = 0;
+            inodes[directory[i].inode].attribute = 0;
+            inodes[directory[i].inode].file_size = 0;
             j = directory[i].inode;
             break;
         }
@@ -366,6 +368,61 @@ void undelete(char * filename)
     return;
 }
 
+/*
+|-------------------------------------------------------------------------|
+    encrypt()
+|-------------------------------------------------------------------------|
+*/
+
+void encrypt(char * filename, uint8_t key)
+{
+    fp = fopen(filename, "rb+");
+    if (fp == NULL)
+    {
+        printf("ERROR: File not found\n");
+        return;
+    }
+
+    uint8_t temp;
+    fseek(fp, 0, SEEK_SET);
+
+    while (fread(&temp, 1, 1, fp))
+    {
+        temp ^= key;
+        fseek(fp, -1, SEEK_CUR);
+        fwrite(&temp, 1, 1, fp);
+    }
+
+    fclose(fp);
+}
+
+/*
+|-------------------------------------------------------------------------|
+    encrypt()
+|-------------------------------------------------------------------------|
+*/
+
+void decrypt(char * filename, uint8_t key)
+{
+    fp = fopen(filename, "rb+");
+    if (fp == NULL)
+    {
+        printf("ERROR: File not found\n");
+        return;
+    }
+
+    uint8_t temp;
+    fseek(fp, 0, SEEK_SET);
+
+    while (fread(&temp, 1, 1, fp))
+    {
+        temp ^= key;
+        fseek(fp, -1, SEEK_CUR);
+        fwrite(&temp, 1, 1, fp);
+    }
+
+    fclose(fp);
+}
 
 /*
 |-------------------------------------------------------------------------|
